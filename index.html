@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Qortal Mintership System Members</title>
+    <style>
+        /* CSS styles */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .summary {
+            margin-bottom: 30px;
+        }
+        .summary p {
+            margin: 5px 0;
+        }
+        .admin-list, .level-group {
+            margin-bottom: 20px;
+        }
+        .member {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .member img {
+            width: 50px;
+            height: 50px;
+            margin-right: 15px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        .admin {
+            font-weight: bold;
+            color: #d9534f;
+        }
+        h2 {
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Qortal Mintership System Members</h1>
+    <div class="summary">
+        <p>Total Members: <span id="total-members"></span></p>
+        <p>Total Admins: <span id="total-admins"></span></p>
+        <p>Admins:</p>
+        <ul id="admin-list"></ul>
+    </div>
+    <div id="members-by-level">
+        <!-- Members grouped by level will be inserted here -->
+    </div>
+
+    <script>
+        // JavaScript code
+
+        const API_BASE_URL = '' // 'http://localhost:12391'; // Replace with your API base URL
+
+        const membersByLevel = {};
+        const adminList = document.getElementById('admin-list');
+        const admins = [];
+
+        (async () => {
+            // Fetch the group members data
+            try {
+                const response = await fetch(`${API_BASE_URL}/groups/members/694`);
+                const data = await response.json();
+
+                const memberCount = data.memberCount;
+                const adminCount = data.adminCount;
+                const members = data.members; // Array of member addresses
+                const adminAddresses = data.admins; // Array of admin addresses
+
+                // Display the total members and admins
+                document.getElementById('total-members').textContent = memberCount;
+                document.getElementById('total-admins').textContent = adminCount;
+
+                // Process each member
+                const memberPromises = members.map(address => processMember(address, adminAddresses));
+
+                await Promise.all(memberPromises);
+
+                // All members processed
+                // Now, display the data
+                displayAdmins();
+                displayMembersByLevel();
+
+            } catch (error) {
+                console.error('Error fetching or processing data:', error);
+            }
+        })();
+
+        async function processMember(address, adminAddresses) {
+            try {
+                const isAdmin = adminAddresses.includes(address);
+
+                // Fetch the address data to get the level
+                let level = 'Unknown';
+                try {
+                    const addressDataResponse = await fetch(`${API_BASE_URL}/addresses/${address}`);
+                    const addressData = await addressDataResponse.json();
+                    level = addressData.level;
+                } catch (error) {
+                    console.error(`Error fetching address data for ${address}:`, error);
+                }
+
+                // Fetch the names data to get the name (if any)
+                let name = null;
+                try {
+                    const namesDataResponse = await fetch(`${API_BASE_URL}/names/address/${address}`);
+                    const namesData = await namesDataResponse.json();
+                    name = (namesData && namesData.length > 0) ? namesData[0].name : null;
+                } catch (error) {
+                    console.error(`Error fetching names data for ${address}:`, error);
+                }
+
+                // Attempt to fetch the avatar image if the user has a name
+                let avatarUrl = null;
+                if (name) {
+                    // The avatar image URL is "/arbitrary/THUMBNAIL/{NAME}/qortal_avatar"
+                    const avatarImageUrl = `${API_BASE_URL}/arbitrary/THUMBNAIL/${encodeURIComponent(name)}/qortal_avatar`;
+                    // Check if the image exists
+                    try {
+                        const avatarResponse = await fetch(avatarImageUrl);
+                        if (avatarResponse.ok) {
+                            avatarUrl = avatarImageUrl;
+                        }
+                    } catch (error) {
+                        // Avatar image not found or error occurred
+                    }
+                }
+
+                // Store the member data
+                const memberData = {
+                    address,
+                    name,
+                    level,
+                    avatarUrl,
+                    isAdmin
+                };
+
+                // Add the member to the appropriate level group
+                if (!membersByLevel[level]) {
+                    membersByLevel[level] = [];
+                }
+                membersByLevel[level].push(memberData);
+
+                // If member is admin, add to admins list
+                if (isAdmin) {
+                    admins.push(memberData);
+                }
+
+            } catch (error) {
+                console.error(`Error processing member ${address}:`, error);
+            }
+        }
+
+        function displayAdmins() {
+            admins.forEach(admin => {
+                const li = document.createElement('li');
+                li.textContent = admin.name ? `${admin.name} (${admin.address})` : admin.address;
+                adminList.appendChild(li);
+            });
+        }
+
+        function displayMembersByLevel() {
+            const membersByLevelContainer = document.getElementById('members-by-level');
+
+            // Get the levels in order
+            const levels = Object.keys(membersByLevel).sort((a, b) => a - b);
+
+            levels.forEach(level => {
+                const levelGroup = document.createElement('div');
+                levelGroup.classList.add('level-group');
+
+                const levelMembers = membersByLevel[level];
+
+                const levelHeader = document.createElement('h2');
+                levelHeader.textContent = `Level ${level} Members (${levelMembers.length})`;
+                levelGroup.appendChild(levelHeader);
+
+                levelMembers.forEach(member => {
+                    const memberDiv = document.createElement('div');
+                    memberDiv.classList.add('member');
+
+                    if (member.avatarUrl) {
+                        const img = document.createElement('img');
+                        img.src = member.avatarUrl;
+                        img.alt = `${member.name}'s avatar`;
+                        memberDiv.appendChild(img);
+                    }
+
+                    const nameSpan = document.createElement('span');
+                    if (member.name) {
+                        nameSpan.textContent = `${member.name} (${member.address})`;
+                    } else {
+                        nameSpan.textContent = member.address;
+                    }
+
+                    if (member.isAdmin) {
+                        nameSpan.classList.add('admin');
+                    }
+
+                    memberDiv.appendChild(nameSpan);
+
+                    levelGroup.appendChild(memberDiv);
+                });
+
+                membersByLevelContainer.appendChild(levelGroup);
+            });
+        }
+    </script>
+</body>
+</html>
