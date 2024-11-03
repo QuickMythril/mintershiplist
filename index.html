@@ -79,7 +79,7 @@
 </head>
 <body>
     <h1>Qortal Mintership System Members</h1>
-    <div id="loading">Loading data...</div>
+    <div><button id="reload-button" type="button" disabled>Reload</button><span id="loading">Loading data...</span></div>
     <div class="summary" style="display:none;">
         <!-- New elements for block and payout info -->
         <table>
@@ -150,72 +150,11 @@
 
                 summaryDiv.style.display = 'block';
 
-                // Fetch the current block height
-                const blockHeightResponse = await fetch('/blocks/height');
-                if (!blockHeightResponse.ok) throw new Error('Failed to fetch block height');
-                const blockHeightData = await blockHeightResponse.json();
-                const currentBlockHeight = blockHeightData;
-
-                // Fetch the admin summary to get the block count in the past 24 hours
-                const summaryResponse = await fetch('/admin/summary');
-                if (!summaryResponse.ok) throw new Error('Failed to fetch admin summary');
-                const summaryData = await summaryResponse.json();
-                const blockCount = summaryData.blockCount; // blocks in past 24 hours
-
-                // Calculate average block time in seconds
-                const averageBlockTime = (24 * 60 * 60) / blockCount;
-
-                // Calculate next payout block height
-                const nextPayoutHeight = Math.ceil(currentBlockHeight / 1000) * 1000;
-
-                // Calculate blocks until next payout
-                const blocksUntilPayout = nextPayoutHeight - currentBlockHeight;
-
-                // Estimate time until next payout in seconds
-                const estimatedTimeUntilPayout = blocksUntilPayout * averageBlockTime;
-
-                // Function to get the current block reward based on block height
-                function getCurrentBlockReward(blockHeight) {
-                    if (blockHeight >= 3110401) {
-                        return 2.00;
-                    } else if (blockHeight >= 2851201) {
-                        return 2.25;
-                    } else if (blockHeight >= 2592001) {
-                        return 2.50;
-                    } else if (blockHeight >= 2332801) {
-                        return 2.75;
-                    } else if (blockHeight >= 2073601) {
-                        return 3.00;
-                    } else if (blockHeight >= 1814401) {
-                        return 3.25;
-                    } else if (blockHeight >= 1555201) {
-                        return 3.50;
-                    } else if (blockHeight >= 1296001) {
-                        return 3.75;
-                    } else if (blockHeight >= 1036801) {
-                        return 4.00;
-                    } else if (blockHeight >= 777601) {
-                        return 4.25;
-                    } else if (blockHeight >= 518401) {
-                        return 4.50;
-                    } else if (blockHeight >= 259201) {
-                        return 4.75;
-                    } else {
-                        return 5.00;
-                    }
-                }
-
-                const currentBlockReward = getCurrentBlockReward(nextPayoutHeight);
-
-                // Display block and payout information
-                document.getElementById('current-block-reward').textContent = `${currentBlockReward} QORT/Block`;
-                document.getElementById('current-block-height').textContent = `Block ${currentBlockHeight}`;
-                document.getElementById('next-payout-height').textContent = `Block ${nextPayoutHeight}`;
-                document.getElementById('blocks-until-payout').textContent = `in ${blocksUntilPayout} Blocks`;
-                document.getElementById('time-until-payout').textContent = `(about ${formatTime(estimatedTimeUntilPayout)})`;
+                // Update block info and get necessary variables
+                const blockInfo = await updateBlockInfo();
 
                 // Total payout reward for next payout
-                const totalPayoutReward = 1000 * currentBlockReward;
+                const totalPayoutReward = 1000 * blockInfo.currentBlockReward;
 
                 // Define tiers
                 const tiers = [
@@ -298,15 +237,99 @@
                 displayAdmins();
                 displayMembersByLevel();
 
-                loadingDiv.style.display = 'none';
+                loadingDiv.textContent = '';
                 membersByLevelContainer.style.display = 'block';
                 progressDiv.style.display = 'none';
 
             } catch (error) {
-                console.error('Error fetching or processing data:', error);
-                loadingDiv.textContent = 'Error loading data.';
+                console.error('Error loading data:', error);
+                loadingDiv.textContent = `Error loading data: ${error}`;
             }
         })();
+
+        async function updateBlockInfo() {
+    try {
+        document.getElementById('reload-button').disabled = true;
+        loadingDiv.textContent = 'Loading data...';
+        // Fetch the current block height
+        const blockHeightResponse = await fetch('/blocks/height');
+        if (!blockHeightResponse.ok) throw new Error('Failed to fetch block height');
+        const blockHeightData = await blockHeightResponse.json();
+        const currentBlockHeight = blockHeightData;
+
+        // Fetch the admin summary to get the block count in the past 24 hours
+        const summaryResponse = await fetch('/admin/summary');
+        if (!summaryResponse.ok) throw new Error('Failed to fetch admin summary');
+        const summaryData = await summaryResponse.json();
+        const blockCount = summaryData.blockCount; // blocks in past 24 hours
+
+        // Calculate average block time in seconds
+        const averageBlockTime = (24 * 60 * 60) / blockCount;
+
+        // Calculate next payout block height
+        const nextPayoutHeight = Math.ceil(currentBlockHeight / 1000) * 1000;
+
+        // Calculate blocks until next payout
+        const blocksUntilPayout = nextPayoutHeight - currentBlockHeight;
+
+        // Estimate time until next payout in seconds
+        const estimatedTimeUntilPayout = blocksUntilPayout * averageBlockTime;
+
+        // Function to get the current block reward based on block height
+        function getCurrentBlockReward(blockHeight) {
+            if (blockHeight >= 3110401) {
+                return 2.00;
+            } else if (blockHeight >= 2851201) {
+                return 2.25;
+            } else if (blockHeight >= 2592001) {
+                return 2.50;
+            } else if (blockHeight >= 2332801) {
+                return 2.75;
+            } else if (blockHeight >= 2073601) {
+                return 3.00;
+            } else if (blockHeight >= 1814401) {
+                return 3.25;
+            } else if (blockHeight >= 1555201) {
+                return 3.50;
+            } else if (blockHeight >= 1296001) {
+                return 3.75;
+            } else if (blockHeight >= 1036801) {
+                return 4.00;
+            } else if (blockHeight >= 777601) {
+                return 4.25;
+            } else if (blockHeight >= 518401) {
+                return 4.50;
+            } else if (blockHeight >= 259201) {
+                return 4.75;
+            } else {
+                return 5.00;
+            }
+        }
+
+        const currentBlockReward = getCurrentBlockReward(nextPayoutHeight);
+
+        // Display block and payout information
+        document.getElementById('current-block-reward').textContent = `${currentBlockReward} QORT/Block`;
+        document.getElementById('current-block-height').textContent = `Block ${currentBlockHeight}`;
+        document.getElementById('next-payout-height').textContent = `Block ${nextPayoutHeight}`;
+        document.getElementById('blocks-until-payout').textContent = `in ${blocksUntilPayout} Blocks`;
+        document.getElementById('time-until-payout').textContent = `(about ${formatTime(estimatedTimeUntilPayout)})`;
+        loadingDiv.textContent = '';
+        document.getElementById('reload-button').disabled = false;
+
+        // Return the necessary variables for further calculations
+        return {
+            currentBlockReward,
+            currentBlockHeight,
+            nextPayoutHeight,
+            blocksUntilPayout,
+            estimatedTimeUntilPayout
+        };
+    } catch (error) {
+        console.error('Error updating block info:', error);
+        loadingDiv.textContent = `Error updating block info: ${error}`;
+    }
+}
 
         async function processMember(memberObj) {
             try {
@@ -557,6 +580,11 @@
 
             rewardsByTierContainer.style.display = 'block';
         }
+
+        // Add event listener to the Reload button
+        document.getElementById('reload-button').addEventListener('click', function() {
+            updateBlockInfo();
+        });
     </script>
 </body>
 </html>
