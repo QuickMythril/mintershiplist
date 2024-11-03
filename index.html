@@ -8,6 +8,8 @@
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
+            color: var(--text-color, #333);
+            background-color: var(--background-color, white);
         }
         .summary {
             margin-bottom: 30px;
@@ -23,84 +25,163 @@
             align-items: center;
             margin-bottom: 10px;
         }
-        .member img {
+        .member img, .member .placeholder {
             width: 50px;
             height: 50px;
             margin-right: 15px;
             border-radius: 50%;
             object-fit: cover;
+            flex-shrink: 0;
+        }
+        .member .placeholder {
+            background-color: transparent;
         }
         .admin {
             font-weight: bold;
-            color: #d9534f;
+            color: var(--link-color, #0056b3);
         }
-        h2 {
+        h2, h3 {
             border-bottom: 1px solid #ccc;
             padding-bottom: 5px;
+            cursor: pointer;
+            user-select: none;
+            color: var(--link-color, #0056b3);
+        }
+        #loading {
+            font-size: 18px;
+            color: #555;
+        }
+        #progress {
+            font-size: 16px;
+            color: #777;
+        }
+        .collapsible {
+            cursor: pointer;
+            user-select: none;
+        }
+        .content {
+            display: none;
+            padding-left: 15px;
         }
     </style>
 </head>
 <body>
     <h1>Qortal Mintership System Members</h1>
-    <div class="summary">
+    <div id="loading">Loading data...</div>
+    <div class="summary" style="display:none;">
         <p>Total Members: <span id="total-members"></span></p>
         <p>Total Admins: <span id="total-admins"></span></p>
         <p>Admins:</p>
-        <ul id="admin-list"></ul>
+        <div id="admin-list"></div>
     </div>
-    <div id="members-by-level">
+    <div id="members-by-level" style="display:none;">
         <!-- Members grouped by level will be inserted here -->
     </div>
-
+    <div id="progress"></div>
     <script>
         // JavaScript code
 
-        const API_BASE_URL = '' // 'http://localhost:12391'; // Replace with your API base URL
-
         const membersByLevel = {};
-        const adminList = document.getElementById('admin-list');
-        const admins = [];
+        let admins = [];
+
+        const loadingDiv = document.getElementById('loading');
+        const summaryDiv = document.querySelector('.summary');
+        const membersByLevelContainer = document.getElementById('members-by-level');
+        const progressDiv = document.getElementById('progress');
+        const adminListDiv = document.getElementById('admin-list');
+
+        // Theme variables from Q-Apps
+        const theme = typeof _qdnTheme !== 'undefined' ? _qdnTheme : 'light';
+
+        // Set CSS variables based on theme
+        if (theme === 'dark') {
+            document.documentElement.style.setProperty('--background-color', '#001f3f');
+            document.documentElement.style.setProperty('--text-color', '#e0e0e0');
+            document.documentElement.style.setProperty('--link-color', '#1e90ff');
+        } else {
+            document.documentElement.style.setProperty('--background-color', 'white');
+            document.documentElement.style.setProperty('--text-color', '#333');
+            document.documentElement.style.setProperty('--link-color', '#0056b3');
+        }
 
         (async () => {
             // Fetch the group members data
             try {
-                const response = await fetch(`${API_BASE_URL}/groups/members/694`);
+                const response = await fetch('/groups/members/694');
+                if (!response.ok) throw new Error('Failed to fetch group members');
                 const data = await response.json();
 
                 const memberCount = data.memberCount;
                 const adminCount = data.adminCount;
-                const members = data.members; // Array of member addresses
-                const adminAddresses = data.admins; // Array of admin addresses
+                const members = data.members; // Array of member objects
+
+                // Extract admin members from the members array
+                admins = members.filter(member => member.isAdmin);
 
                 // Display the total members and admins
                 document.getElementById('total-members').textContent = memberCount;
                 document.getElementById('total-admins').textContent = adminCount;
 
-                // Process each member
-                const memberPromises = members.map(address => processMember(address, adminAddresses));
+                summaryDiv.style.display = 'block';
 
-                await Promise.all(memberPromises);
+                // Process each member
+                const totalMembers = members.length;
+                let processedMembers = 0;
+
+                // Limit the number of concurrent fetches
+                const CONCURRENT_LIMIT = 10;
+                let index = 0;
+
+                async function processNext() {
+                    if (index >= members.length) {
+                        return;
+                    }
+                    const memberObj = members[index];
+                    index++;
+                    await processMember(memberObj);
+                    processedMembers++;
+                    progressDiv.textContent = `Processed ${processedMembers} of ${totalMembers} members`;
+                    await processNext();
+                }
+
+                // Start initial concurrent fetches
+                const initialPromises = [];
+                for (let i = 0; i < CONCURRENT_LIMIT; i++) {
+                    initialPromises.push(processNext());
+                }
+
+                await Promise.all(initialPromises);
 
                 // All members processed
                 // Now, display the data
                 displayAdmins();
                 displayMembersByLevel();
 
+                loadingDiv.style.display = 'none';
+                membersByLevelContainer.style.display = 'block';
+                progressDiv.style.display = 'none';
+
             } catch (error) {
                 console.error('Error fetching or processing data:', error);
+                loadingDiv.textContent = 'Error loading data.';
             }
         })();
 
-        async function processMember(address, adminAddresses) {
+        async function processMember(memberObj) {
             try {
-                const isAdmin = adminAddresses.includes(address);
+                const address = memberObj.member;
+                const isAdmin = memberObj.isAdmin === true;
 
                 // Fetch the address data to get the level
                 let level = 'Unknown';
                 try {
-                    const addressDataResponse = await fetch(`${API_BASE_URL}/addresses/${address}`);
-                    const addressData = await addressDataResponse.json();
-                    level = addressData.level;
+                    const addressDataResponse = await fetch(`/addresses/${address}`);
+                    if (addressDataResponse.ok) {
+                        const addressData = await addressDataResponse.json();
+                        level = addressData.level;
+                    } else {
+                        console.error(`Error fetching address data for ${address}: ${addressDataResponse.statusText}`);
+                    }
                 } catch (error) {
                     console.error(`Error fetching address data for ${address}:`, error);
                 }
@@ -108,9 +189,13 @@
                 // Fetch the names data to get the name (if any)
                 let name = null;
                 try {
-                    const namesDataResponse = await fetch(`${API_BASE_URL}/names/address/${address}`);
-                    const namesData = await namesDataResponse.json();
-                    name = (namesData && namesData.length > 0) ? namesData[0].name : null;
+                    const namesDataResponse = await fetch(`/names/address/${address}`);
+                    if (namesDataResponse.ok) {
+                        const namesData = await namesDataResponse.json();
+                        name = (namesData && namesData.length > 0) ? namesData[0].name : null;
+                    } else {
+                        console.error(`Error fetching names data for ${address}: ${namesDataResponse.statusText}`);
+                    }
                 } catch (error) {
                     console.error(`Error fetching names data for ${address}:`, error);
                 }
@@ -119,7 +204,7 @@
                 let avatarUrl = null;
                 if (name) {
                     // The avatar image URL is "/arbitrary/THUMBNAIL/{NAME}/qortal_avatar"
-                    const avatarImageUrl = `${API_BASE_URL}/arbitrary/THUMBNAIL/${encodeURIComponent(name)}/qortal_avatar`;
+                    const avatarImageUrl = `/arbitrary/THUMBNAIL/${encodeURIComponent(name)}/qortal_avatar`;
                     // Check if the image exists
                     try {
                         const avatarResponse = await fetch(avatarImageUrl);
@@ -128,6 +213,7 @@
                         }
                     } catch (error) {
                         // Avatar image not found or error occurred
+                        console.error(`Error fetching avatar for ${name}:`, error);
                     }
                 }
 
@@ -146,49 +232,114 @@
                 }
                 membersByLevel[level].push(memberData);
 
-                // If member is admin, add to admins list
+                // Update admin data with full memberData
                 if (isAdmin) {
-                    admins.push(memberData);
+                    const adminIndex = admins.findIndex(admin => admin.member === address);
+                    if (adminIndex !== -1) {
+                        admins[adminIndex] = { ...admins[adminIndex], ...memberData };
+                    }
                 }
 
             } catch (error) {
-                console.error(`Error processing member ${address}:`, error);
+                console.error(`Error processing member ${memberObj.member}:`, error);
             }
         }
 
         function displayAdmins() {
+            if (admins.length === 0) {
+                const p = document.createElement('p');
+                p.textContent = 'No admins found.';
+                adminListDiv.appendChild(p);
+                return;
+            }
+
+            // Sort admins alphabetically by name, then by address
+            admins.sort((a, b) => {
+                if (a.name && b.name) {
+                    return a.name.localeCompare(b.name);
+                } else if (a.name) {
+                    return -1;
+                } else if (b.name) {
+                    return 1;
+                } else {
+                    return a.address.localeCompare(b.address);
+                }
+            });
+
             admins.forEach(admin => {
-                const li = document.createElement('li');
-                li.textContent = admin.name ? `${admin.name} (${admin.address})` : admin.address;
-                adminList.appendChild(li);
+                const adminDiv = document.createElement('div');
+                adminDiv.classList.add('member');
+
+                if (admin.avatarUrl) {
+                    const img = document.createElement('img');
+                    img.src = admin.avatarUrl;
+                    img.alt = `${admin.name || admin.address}'s avatar`;
+                    adminDiv.appendChild(img);
+                } else {
+                    // Add invisible placeholder
+                    const placeholder = document.createElement('div');
+                    placeholder.classList.add('placeholder');
+                    adminDiv.appendChild(placeholder);
+                }
+
+                const infoSpan = document.createElement('span');
+                let displayText = '';
+                if (admin.name) {
+                    displayText = `${admin.name} (${admin.address}) - Level ${admin.level}`;
+                } else {
+                    displayText = `${admin.address} - Level ${admin.level}`;
+                }
+                infoSpan.textContent = displayText;
+                infoSpan.classList.add('admin');
+
+                adminDiv.appendChild(infoSpan);
+
+                adminListDiv.appendChild(adminDiv);
             });
         }
 
         function displayMembersByLevel() {
-            const membersByLevelContainer = document.getElementById('members-by-level');
-
-            // Get the levels in order
             const levels = Object.keys(membersByLevel).sort((a, b) => a - b);
 
             levels.forEach(level => {
                 const levelGroup = document.createElement('div');
                 levelGroup.classList.add('level-group');
 
-                const levelMembers = membersByLevel[level];
-
                 const levelHeader = document.createElement('h2');
-                levelHeader.textContent = `Level ${level} Members (${levelMembers.length})`;
-                levelGroup.appendChild(levelHeader);
+                levelHeader.textContent = `Level ${level} Members (${membersByLevel[level].length})`;
+                levelHeader.classList.add('collapsible');
 
-                levelMembers.forEach(member => {
+                // Content div that will hold the list of members
+                const contentDiv = document.createElement('div');
+                contentDiv.classList.add('content');
+
+                // Sort members alphabetically by name, then by address
+                membersByLevel[level].sort((a, b) => {
+                    if (a.name && b.name) {
+                        return a.name.localeCompare(b.name);
+                    } else if (a.name) {
+                        return -1;
+                    } else if (b.name) {
+                        return 1;
+                    } else {
+                        return a.address.localeCompare(b.address);
+                    }
+                });
+
+                membersByLevel[level].forEach(member => {
                     const memberDiv = document.createElement('div');
                     memberDiv.classList.add('member');
 
                     if (member.avatarUrl) {
                         const img = document.createElement('img');
                         img.src = member.avatarUrl;
-                        img.alt = `${member.name}'s avatar`;
+                        img.alt = `${member.name || member.address}'s avatar`;
                         memberDiv.appendChild(img);
+                    } else {
+                        // Add invisible placeholder
+                        const placeholder = document.createElement('div');
+                        placeholder.classList.add('placeholder');
+                        memberDiv.appendChild(placeholder);
                     }
 
                     const nameSpan = document.createElement('span');
@@ -204,8 +355,21 @@
 
                     memberDiv.appendChild(nameSpan);
 
-                    levelGroup.appendChild(memberDiv);
+                    contentDiv.appendChild(memberDiv);
                 });
+
+                // Add event listener to level header for collapsing/expanding
+                levelHeader.addEventListener('click', function() {
+                    this.classList.toggle('active');
+                    if (contentDiv.style.display === 'block') {
+                        contentDiv.style.display = 'none';
+                    } else {
+                        contentDiv.style.display = 'block';
+                    }
+                });
+
+                levelGroup.appendChild(levelHeader);
+                levelGroup.appendChild(contentDiv);
 
                 membersByLevelContainer.appendChild(levelGroup);
             });
