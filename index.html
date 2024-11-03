@@ -258,9 +258,9 @@
         const currentBlockHeight = blockHeightData;
 
         // Fetch the admin summary to get the block count in the past 24 hours
-        const summaryData = await qortalRequest({
+        const summaryData = await qortalRequestWithTimeout({
             action: "GET_DAY_SUMMARY"
-        });
+        }, 60 * 1000); // 60 second timeout
         if (!summaryData.blockCount) throw new Error('Failed to fetch admin summary');
         const blockCount = summaryData.blockCount; // blocks in past 24 hours
 
