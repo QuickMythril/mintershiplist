@@ -81,15 +81,18 @@
     <h1>Qortal Mintership System Members</h1>
     <div id="loading">Loading data...</div>
     <div class="summary" style="display:none;">
+        <!-- New elements for block and payout info -->
+        <table>
+            <tr><td>Current Reward</td><td><span id="current-block-reward"></span></td></tr>
+            <tr><td>Current Height</td><td><span id="current-block-height"></span></td></tr>
+            <tr><td>Next Payout</td><td><span id="next-payout-height"></span></td></tr>
+            <tr><td><span id="blocks-until-payout"></span></td><td><span id="time-until-payout"></span></td></tr>
+        </table>
+        <hr>
         <p>Total Members: <span id="total-members"></span></p>
         <p>Total Admins: <span id="total-admins"></span></p>
         <p>Admins:</p>
         <div id="admin-list"></div>
-        <!-- New elements for block and payout info -->
-        <p>Current Block Height: <span id="current-block-height"></span></p>
-        <p>Next Payout Block Height: <span id="next-payout-height"></span></p>
-        <p>Blocks Until Next Payout: <span id="blocks-until-payout"></span></p>
-        <p>Estimated Time Until Next Payout: <span id="estimated-time-until-payout"></span></p>
     </div>
     <!-- New div for rewards by tier -->
     <div id="rewards-by-tier" style="display:none;">
@@ -202,7 +205,14 @@
                     }
                 }
 
-                const currentBlockReward = getCurrentBlockReward(currentBlockHeight);
+                const currentBlockReward = getCurrentBlockReward(nextPayoutHeight);
+
+                // Display block and payout information
+                document.getElementById('current-block-reward').textContent = `${currentBlockReward} QORT/Block`;
+                document.getElementById('current-block-height').textContent = `Block ${currentBlockHeight}`;
+                document.getElementById('next-payout-height').textContent = `Block ${nextPayoutHeight}`;
+                document.getElementById('blocks-until-payout').textContent = `in ${blocksUntilPayout} Blocks`;
+                document.getElementById('time-until-payout').textContent = `(about ${formatTime(estimatedTimeUntilPayout)})`;
 
                 // Total payout reward for next payout
                 const totalPayoutReward = 1000 * currentBlockReward;
@@ -281,12 +291,6 @@
                         tier.rewardPerMember = 0;
                     }
                 }
-
-                // Display block and payout information
-                document.getElementById('current-block-height').textContent = currentBlockHeight;
-                document.getElementById('next-payout-height').textContent = nextPayoutHeight;
-                document.getElementById('blocks-until-payout').textContent = blocksUntilPayout;
-                document.getElementById('estimated-time-until-payout').textContent = formatTime(estimatedTimeUntilPayout);
 
                 // Display the rewards per tier
                 displayRewardsByTier();
