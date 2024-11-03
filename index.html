@@ -258,9 +258,10 @@
         const currentBlockHeight = blockHeightData;
 
         // Fetch the admin summary to get the block count in the past 24 hours
-        const summaryResponse = await fetch('/admin/summary');
-        if (!summaryResponse.ok) throw new Error('Failed to fetch admin summary');
-        const summaryData = await summaryResponse.json();
+        const summaryData = await qortalRequest({
+            action: "GET_DAY_SUMMARY"
+        });
+        if (!summaryData.blockCount) throw new Error('Failed to fetch admin summary');
         const blockCount = summaryData.blockCount; // blocks in past 24 hours
 
         // Calculate average block time in seconds
@@ -328,6 +329,7 @@
     } catch (error) {
         console.error('Error updating block info:', error);
         loadingDiv.textContent = `Error updating block info: ${error}`;
+        document.getElementById('reload-button').disabled = false;
     }
 }
 
