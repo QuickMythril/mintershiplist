@@ -254,18 +254,25 @@
         // Fetch the current block height
         const blockHeightResponse = await fetch('/blocks/height');
         if (!blockHeightResponse.ok) throw new Error('Failed to fetch block height');
-        const blockHeightData = await blockHeightResponse.json();
-        const currentBlockHeight = blockHeightData;
+        const currentBlockHeight = await blockHeightResponse.json();
 
-        // Fetch the admin summary to get the block count in the past 24 hours
-        const summaryData = await qortalRequestWithTimeout({
-            action: "GET_DAY_SUMMARY"
-        }, 60 * 1000); // 60 second timeout
-        if (!summaryData.blockCount) throw new Error('Failed to fetch admin summary');
-        const blockCount = summaryData.blockCount; // blocks in past 24 hours
+        // Fetch the current block to get its timestamp
+        const currentBlockResponse = await fetch(`/blocks/byheight/${currentBlockHeight}`);
+        if (!currentBlockResponse.ok) throw new Error('Failed to fetch current block data');
+        const currentBlockData = await currentBlockResponse.json();
+        const currentBlockTimestamp = currentBlockData.timestamp;
 
-        // Calculate average block time in seconds
-        const averageBlockTime = (24 * 60 * 60) / blockCount;
+        // Fetch the block at height (currentBlockHeight - 1000) to get its timestamp
+        const previousBlockHeight = currentBlockHeight - 1000;
+        if (previousBlockHeight <= 0) throw new Error('Not enough blocks to calculate average block time');
+        const previousBlockResponse = await fetch(`/blocks/byheight/${previousBlockHeight}`);
+        if (!previousBlockResponse.ok) throw new Error('Failed to fetch previous block data');
+        const previousBlockData = await previousBlockResponse.json();
+        const previousBlockTimestamp = previousBlockData.timestamp;
+
+        // Calculate average block time in seconds per block
+        const timeDifferenceInSeconds = (currentBlockTimestamp - previousBlockTimestamp) / 1000;
+        const averageBlockTime = timeDifferenceInSeconds / 1000;
 
         // Calculate next payout block height
         const nextPayoutHeight = Math.ceil(currentBlockHeight / 1000) * 1000;
