@@ -63,6 +63,18 @@
             display: none;
             padding-left: 15px;
         }
+        /* New styles for the tiers */
+        .tier {
+            margin-bottom: 20px;
+        }
+        .tier h3 {
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 5px;
+            color: var(--link-color, #0056b3);
+        }
+        .tier p {
+            margin: 5px 0;
+        }
     </style>
 </head>
 <body>
@@ -73,6 +85,15 @@
         <p>Total Admins: <span id="total-admins"></span></p>
         <p>Admins:</p>
         <div id="admin-list"></div>
+        <!-- New elements for block and payout info -->
+        <p>Current Block Height: <span id="current-block-height"></span></p>
+        <p>Next Payout Block Height: <span id="next-payout-height"></span></p>
+        <p>Blocks Until Next Payout: <span id="blocks-until-payout"></span></p>
+        <p>Estimated Time Until Next Payout: <span id="estimated-time-until-payout"></span></p>
+    </div>
+    <!-- New div for rewards by tier -->
+    <div id="rewards-by-tier" style="display:none;">
+        <!-- Rewards per tier will be inserted here -->
     </div>
     <div id="members-by-level" style="display:none;">
         <!-- Members grouped by level will be inserted here -->
@@ -83,12 +104,14 @@
 
         const membersByLevel = {};
         let admins = [];
+        let tierData = {};
 
         const loadingDiv = document.getElementById('loading');
         const summaryDiv = document.querySelector('.summary');
         const membersByLevelContainer = document.getElementById('members-by-level');
         const progressDiv = document.getElementById('progress');
         const adminListDiv = document.getElementById('admin-list');
+        const rewardsByTierContainer = document.getElementById('rewards-by-tier');
 
         // Theme variables from Q-Apps
         const theme = typeof _qdnTheme !== 'undefined' ? _qdnTheme : 'light';
@@ -105,8 +128,8 @@
         }
 
         (async () => {
-            // Fetch the group members data
             try {
+                // Fetch the group members data
                 const response = await fetch('/groups/members/694');
                 if (!response.ok) throw new Error('Failed to fetch group members');
                 const data = await response.json();
@@ -123,6 +146,87 @@
                 document.getElementById('total-admins').textContent = adminCount;
 
                 summaryDiv.style.display = 'block';
+
+                // Fetch the current block height
+                const blockHeightResponse = await fetch('/blocks/height');
+                if (!blockHeightResponse.ok) throw new Error('Failed to fetch block height');
+                const blockHeightData = await blockHeightResponse.json();
+                const currentBlockHeight = blockHeightData;
+
+                // Fetch the admin summary to get the block count in the past 24 hours
+                const summaryResponse = await fetch('/admin/summary');
+                if (!summaryResponse.ok) throw new Error('Failed to fetch admin summary');
+                const summaryData = await summaryResponse.json();
+                const blockCount = summaryData.blockCount; // blocks in past 24 hours
+
+                // Calculate average block time in seconds
+                const averageBlockTime = (24 * 60 * 60) / blockCount;
+
+                // Calculate next payout block height
+                const nextPayoutHeight = Math.ceil(currentBlockHeight / 1000) * 1000;
+
+                // Calculate blocks until next payout
+                const blocksUntilPayout = nextPayoutHeight - currentBlockHeight;
+
+                // Estimate time until next payout in seconds
+                const estimatedTimeUntilPayout = blocksUntilPayout * averageBlockTime;
+
+                // Function to get the current block reward based on block height
+                function getCurrentBlockReward(blockHeight) {
+                    if (blockHeight >= 3110401) {
+                        return 2.00;
+                    } else if (blockHeight >= 2851201) {
+                        return 2.25;
+                    } else if (blockHeight >= 2592001) {
+                        return 2.50;
+                    } else if (blockHeight >= 2332801) {
+                        return 2.75;
+                    } else if (blockHeight >= 2073601) {
+                        return 3.00;
+                    } else if (blockHeight >= 1814401) {
+                        return 3.25;
+                    } else if (blockHeight >= 1555201) {
+                        return 3.50;
+                    } else if (blockHeight >= 1296001) {
+                        return 3.75;
+                    } else if (blockHeight >= 1036801) {
+                        return 4.00;
+                    } else if (blockHeight >= 777601) {
+                        return 4.25;
+                    } else if (blockHeight >= 518401) {
+                        return 4.50;
+                    } else if (blockHeight >= 259201) {
+                        return 4.75;
+                    } else {
+                        return 5.00;
+                    }
+                }
+
+                const currentBlockReward = getCurrentBlockReward(currentBlockHeight);
+
+                // Total payout reward for next payout
+                const totalPayoutReward = 1000 * currentBlockReward;
+
+                // Define tiers
+                const tiers = [
+                    { levels: [1,2], percentage: 0.06, name: 'Levels 1-2' },
+                    { levels: [3,4], percentage: 0.13, name: 'Levels 3-4' },
+                    { levels: [5,6], percentage: 0.19, name: 'Levels 5-6' },
+                    { levels: [7,8], percentage: 0.26, name: 'Levels 7-8' },
+                    { levels: [9,10], percentage: 0.32, name: 'Levels 9-10' },
+                ];
+
+                tierData = {};
+
+                tiers.forEach(tier => {
+                    tierData[tier.name] = {
+                        percentage: tier.percentage,
+                        levels: tier.levels,
+                        memberCount: 0,
+                        reward: 0,
+                        rewardPerMember: 0
+                    };
+                });
 
                 // Process each member
                 const totalMembers = members.length;
@@ -154,6 +258,39 @@
 
                 // All members processed
                 // Now, display the data
+
+                // Compute member counts per tier
+                for (const level in membersByLevel) {
+                    const levelNum = parseInt(level, 10);
+                    const memberCountAtLevel = membersByLevel[level].length;
+                    for (const tier of tiers) {
+                        if (tier.levels.includes(levelNum)) {
+                            tierData[tier.name].memberCount += memberCountAtLevel;
+                            break;
+                        }
+                    }
+                }
+
+                // Compute rewards per tier
+                for (const tierName in tierData) {
+                    const tier = tierData[tierName];
+                    tier.reward = totalPayoutReward * tier.percentage;
+                    if (tier.memberCount > 0) {
+                        tier.rewardPerMember = tier.reward / tier.memberCount;
+                    } else {
+                        tier.rewardPerMember = 0;
+                    }
+                }
+
+                // Display block and payout information
+                document.getElementById('current-block-height').textContent = currentBlockHeight;
+                document.getElementById('next-payout-height').textContent = nextPayoutHeight;
+                document.getElementById('blocks-until-payout').textContent = blocksUntilPayout;
+                document.getElementById('estimated-time-until-payout').textContent = formatTime(estimatedTimeUntilPayout);
+
+                // Display the rewards per tier
+                displayRewardsByTier();
+
                 displayAdmins();
                 displayMembersByLevel();
 
@@ -373,6 +510,48 @@
 
                 membersByLevelContainer.appendChild(levelGroup);
             });
+        }
+
+        // Function to format time from seconds to a readable format
+        function formatTime(seconds) {
+            const days = Math.floor(seconds / (24 * 3600));
+            seconds %= (24 * 3600);
+            const hours = Math.floor(seconds / 3600);
+            seconds %= 3600;
+            const minutes = Math.floor(seconds / 60);
+            seconds = Math.floor(seconds % 60);
+            let timeString = '';
+            if (days > 0) timeString += days + 'd ';
+            if (hours > 0 || days > 0) timeString += hours + 'h ';
+            if (minutes > 0 || hours > 0 || days > 0) timeString += minutes + 'm ';
+            timeString += seconds + 's';
+            return timeString;
+        }
+
+        // Function to display rewards by tier
+        function displayRewardsByTier() {
+            for (const tierName in tierData) {
+                const tier = tierData[tierName];
+
+                const tierDiv = document.createElement('div');
+                tierDiv.classList.add('tier');
+
+                const header = document.createElement('h3');
+                header.textContent = `${tierName} - ${tier.memberCount} Members`;
+                tierDiv.appendChild(header);
+
+                const rewardP = document.createElement('p');
+                rewardP.textContent = `Total Reward for Tier: ${tier.reward.toFixed(2)} QORT`;
+                tierDiv.appendChild(rewardP);
+
+                const rewardPerMemberP = document.createElement('p');
+                rewardPerMemberP.textContent = `Reward per Member: ${tier.rewardPerMember.toFixed(4)} QORT`;
+                tierDiv.appendChild(rewardPerMemberP);
+
+                rewardsByTierContainer.appendChild(tierDiv);
+            }
+
+            rewardsByTierContainer.style.display = 'block';
         }
     </script>
 </body>
