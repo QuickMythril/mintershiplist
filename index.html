@@ -98,6 +98,10 @@
     <div id="rewards-by-tier" style="display:none;">
         <!-- Rewards per tier will be inserted here -->
     </div>
+    <!-- Add search input field -->
+    <p>
+        <input type="text" id="search-input" placeholder="Search members...">
+    </p>
     <div id="members-by-level" style="display:none;">
         <!-- Members grouped by level will be inserted here -->
     </div>
@@ -115,6 +119,7 @@
         const progressDiv = document.getElementById('progress');
         const adminListDiv = document.getElementById('admin-list');
         const rewardsByTierContainer = document.getElementById('rewards-by-tier');
+        const searchInput = document.getElementById('search-input');
 
         // Theme variables from Q-Apps
         const theme = typeof _qdnTheme !== 'undefined' ? _qdnTheme : 'light';
@@ -471,23 +476,23 @@
             });
         }
 
-        function displayMembersByLevel() {
+        // Add event listener to the search input
+            searchInput.addEventListener('input', function() {
+            const searchQuery = searchInput.value.trim().toLowerCase();
+            displayMembersByLevel(searchQuery);
+        });
+
+        // Modified displayMembersByLevel function
+        function displayMembersByLevel(searchQuery = '') {
+            // Clear the container
+            membersByLevelContainer.innerHTML = '';
+
             const levels = Object.keys(membersByLevel).sort((a, b) => a - b);
 
             levels.forEach(level => {
-                const levelGroup = document.createElement('div');
-                levelGroup.classList.add('level-group');
-
-                const levelHeader = document.createElement('h2');
-                levelHeader.textContent = `Level ${level} Members (${membersByLevel[level].length})`;
-                levelHeader.classList.add('collapsible');
-
-                // Content div that will hold the list of members
-                const contentDiv = document.createElement('div');
-                contentDiv.classList.add('content');
-
-                // Sort members alphabetically by name, then by address
-                membersByLevel[level].sort((a, b) => {
+                const membersAtLevel = membersByLevel[level].slice(); // Copy the array
+                // Sort members
+                membersAtLevel.sort((a, b) => {
                     if (a.name && b.name) {
                         return a.name.localeCompare(b.name);
                     } else if (a.name) {
@@ -499,7 +504,31 @@
                     }
                 });
 
-                membersByLevel[level].forEach(member => {
+                // Filter members based on search query
+                const filteredMembers = membersAtLevel.filter(member => {
+                    if (searchQuery === '') return true;
+                    const name = member.name ? member.name.toLowerCase() : '';
+                    const address = member.address.toLowerCase();
+                    return name.includes(searchQuery) || address.includes(searchQuery);
+                });
+
+                if (filteredMembers.length === 0) {
+                    // No members matching the search query at this level
+                    return; // Skip this level
+                }
+
+                const levelGroup = document.createElement('div');
+                levelGroup.classList.add('level-group');
+
+                const levelHeader = document.createElement('h2');
+                levelHeader.textContent = `Level ${level} Members (${filteredMembers.length})`;
+                levelHeader.classList.add('collapsible');
+
+                // Content div that will hold the list of members
+                const contentDiv = document.createElement('div');
+                contentDiv.classList.add('content');
+
+                filteredMembers.forEach(member => {
                     const memberDiv = document.createElement('div');
                     memberDiv.classList.add('member');
 
@@ -540,6 +569,11 @@
                         contentDiv.style.display = 'block';
                     }
                 });
+
+                // Expand the level by default if search query is not empty
+                if (searchQuery !== '') {
+                    contentDiv.style.display = 'block';
+                }
 
                 levelGroup.appendChild(levelHeader);
                 levelGroup.appendChild(contentDiv);
