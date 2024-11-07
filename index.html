@@ -38,20 +38,38 @@
         }
         .admin {
             font-weight: bold;
-            color: var(--link-color, #0056b3);
+            color: var(--link-color, dodgerblue);
         }
         h2, h3 {
             border-bottom: 1px solid #ccc;
             padding-bottom: 5px;
             cursor: pointer;
             user-select: none;
-            color: var(--link-color, #0056b3);
+            color: var(--link-color, dodgerblue);
         }
         #loading {
             font-size: 18px;
             color: #555;
         }
         #progress {
+            font-size: 16px;
+            color: #777;
+        }
+        #progress-bar-container {
+            width: 100%;
+            background-color: #ccc;
+            border-radius: 5px;
+            overflow: hidden;
+            height: 20px;
+            margin-bottom: 10px;
+        }
+        #progress-bar {
+            width: 0%;
+            height: 100%;
+            background-color: dodgerblue;
+            transition: width 0.2s ease;
+        }
+        #estimated-time {
             font-size: 16px;
             color: #777;
         }
@@ -70,7 +88,7 @@
         .tier h3 {
             border-bottom: 1px solid #ccc;
             padding-bottom: 5px;
-            color: var(--link-color, #0056b3);
+            color: var(--link-color, dodgerblue);
         }
         .tier p {
             margin: 5px 0;
@@ -105,7 +123,13 @@
     <div id="members-by-level" style="display:none;">
         <!-- Members grouped by level will be inserted here -->
     </div>
-    <div id="progress"></div>
+    <div id="progress">
+        <p id="progress-text"></p>
+        <div id="progress-bar-container">
+            <div id="progress-bar"></div>
+        </div>
+        <p id="estimated-time"></p>
+    </div>    
     <script>
         // JavaScript code
 
@@ -117,6 +141,9 @@
         const summaryDiv = document.querySelector('.summary');
         const membersByLevelContainer = document.getElementById('members-by-level');
         const progressDiv = document.getElementById('progress');
+        const progressText = document.getElementById('progress-text');
+        const progressBar = document.getElementById('progress-bar');
+        const estimatedTimeDiv = document.getElementById('estimated-time');
         const adminListDiv = document.getElementById('admin-list');
         const rewardsByTierContainer = document.getElementById('rewards-by-tier');
         const searchInput = document.getElementById('search-input');
@@ -128,11 +155,11 @@
         if (theme === 'dark') {
             document.documentElement.style.setProperty('--background-color', '#001f3f');
             document.documentElement.style.setProperty('--text-color', '#e0e0e0');
-            document.documentElement.style.setProperty('--link-color', '#1e90ff');
+            document.documentElement.style.setProperty('--link-color', 'dodgerblue');
         } else {
             document.documentElement.style.setProperty('--background-color', 'white');
             document.documentElement.style.setProperty('--text-color', '#333');
-            document.documentElement.style.setProperty('--link-color', '#0056b3');
+            document.documentElement.style.setProperty('--link-color', 'dodgerblue');
         }
 
         (async () => {
@@ -182,6 +209,7 @@
                     };
                 });
 
+                const startTime = Date.now();
                 // Process each member
                 const totalMembers = members.length;
                 let processedMembers = 0;
@@ -198,7 +226,14 @@
                     index++;
                     await processMember(memberObj);
                     processedMembers++;
-                    progressDiv.textContent = `Processed ${processedMembers} of ${totalMembers} members`;
+                    const percentage = ((processedMembers / totalMembers) * 100).toFixed(2);
+                    const elapsedTime = Date.now() - startTime; // in milliseconds
+                    const averageTimePerMember = elapsedTime / processedMembers;
+                    const estimatedTotalTime = averageTimePerMember * totalMembers;
+                    const estimatedTimeRemaining = estimatedTotalTime - elapsedTime; // in milliseconds
+                    progressText.textContent = `Processed ${processedMembers} of ${totalMembers} members (${percentage}%)`;
+                    progressBar.style.width = `${percentage}%`;
+                    estimatedTimeDiv.textContent = `Estimated Time Remaining: ${formatTime(estimatedTimeRemaining / 1000)}`;
                     await processNext();
                 }
 
@@ -211,6 +246,12 @@
                 await Promise.all(initialPromises);
 
                 // All members processed
+
+                // This hides the progress indicators
+                loadingDiv.textContent = '';
+                membersByLevelContainer.style.display = 'block';
+                progressDiv.style.display = 'none';
+
                 // Now, display the data
 
                 // Compute member counts per tier
