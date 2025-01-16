@@ -436,13 +436,36 @@
                     }
                 }
 
+                // Check for TRANSFER_PRIVS transaction
+                const transferCheck = await fetch('/transactions/search?txType=TRANSFER_PRIVS&confirmationStatus=CONFIRMED&limit=0&address=' + address);
+                const transferResponse = await transferCheck.json();
+                let transferAddress = null;
+                let transferName = null;
+                
+                if (transferResponse.length > 0) {
+                    transferAddress = transferResponse[0].creatorAddress;
+                    try {
+                        const transferNamesDataResponse = await fetch(`/names/address/${transferAddress}`);
+                        if (transferNamesDataResponse.ok) {
+                            const transferNamesData = await transferNamesDataResponse.json();
+                            transferName = (transferNamesData && transferNamesData.length > 0) ? transferNamesData[0].name : null;
+                        } else {
+                            console.error(`Error fetching names data for ${transferAddress}: ${transferNamesDataResponse.statusText}`);
+                        }
+                    } catch (error) {
+                        console.error(`Error fetching names data for ${transferAddress}:`, error);
+                    }
+                }
+
                 // Store the member data
                 const memberData = {
                     address,
                     name,
                     level,
                     avatarUrl,
-                    isAdmin
+                    isAdmin,
+                    transferAddress,
+                    transferName
                 };
 
                 // Add the member to the appropriate level group
@@ -597,8 +620,25 @@
                     }
 
                     memberDiv.appendChild(nameSpan);
-
                     contentDiv.appendChild(memberDiv);
+
+                    if (member.transferAddress) {
+                        const transferDiv = document.createElement('div');
+                        const placeholder = document.createElement('div');
+                        placeholder.classList.add('placeholder');
+                        transferDiv.appendChild(placeholder);
+
+                        const transferSpan = document.createElement('span');
+                        if (member.transferName) {
+                            transferSpan.textContent = `TRANSFER_PRIVS from: ${member.transferName} (${member.transferAddress})`;
+                        } else {
+                            transferSpan.textContent = `TRANSFER_PRIVS from: (${member.transferAddress})`;
+                        }
+                        transferDiv.appendChild(transferSpan);
+                        contentDiv.appendChild(transferDiv);
+                    }
+
+                    
                 });
 
                 // Add event listener to level header for collapsing/expanding
