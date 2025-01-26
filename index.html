@@ -113,12 +113,26 @@
         </table>
         <hr>
         <p>Total Members: <span id="total-members"></span></p>
-        <p>Total Minter Admins: <span id="total-minter-admins"></span></p>
-        <p>Total Developer Admins: <span id="total-dev-admins"></span></p>
-        <p>Minter Admins:</p>
-        <div id="minter-admin-list"></div>
-        <p>Developer Admins:</p>
-        <div id="dev-admin-list"></div>
+        <div id="progress">
+            <p id="progress-text"></p>
+            <div id="progress-bar-container">
+                <div id="progress-bar"></div>
+            </div>
+            <p id="estimated-time"></p>
+        </div>
+        <!-- Collapsible headings for Minter/Admin lists -->
+        <h2 id="minter-admins-header" class="collapsible">
+            Minter Admins (<span id="total-minter-admins"></span>) - Group ID 694
+        </h2>
+        <div id="minter-admins-content" class="content">
+            <div id="minter-admin-list"></div>
+        </div>
+        <h2 id="dev-admins-header" class="collapsible">
+            Developer Admins (<span id="total-dev-admins"></span>) - Group ID 1
+        </h2>
+        <div id="dev-admins-content" class="content">
+            <div id="dev-admin-list"></div>
+        </div>
     </div>
     <!-- New div for rewards by tier -->
     <div id="rewards-by-tier" style="display:none;">
@@ -131,13 +145,6 @@
     <div id="members-by-level" style="display:none;">
         <!-- Members grouped by level will be inserted here -->
     </div>
-    <div id="progress">
-        <p id="progress-text"></p>
-        <div id="progress-bar-container">
-            <div id="progress-bar"></div>
-        </div>
-        <p id="estimated-time"></p>
-    </div>    
     <script>
         // JavaScript code
 
@@ -197,6 +204,23 @@
                 const devMembers = devData.members; // Array of dev group member objects
                 devAdmins = devMembers.filter(member => member.isAdmin);
                 document.getElementById('total-dev-admins').textContent = devAdminCount;
+                // Once the DOM elements exist, attach click handlers for toggling:
+                document.getElementById('minter-admins-header').addEventListener('click', function() {
+                    const contentDiv = document.getElementById('minter-admins-content');
+                    if (contentDiv.style.display === 'block') {
+                        contentDiv.style.display = 'none';
+                    } else {
+                        contentDiv.style.display = 'block';
+                    }
+                });
+                document.getElementById('dev-admins-header').addEventListener('click', function() {
+                    const contentDiv = document.getElementById('dev-admins-content');
+                    if (contentDiv.style.display === 'block') {
+                        contentDiv.style.display = 'none';
+                    } else {
+                        contentDiv.style.display = 'block';
+                    }
+                });
                 devAdmins = await Promise.all(
                     devAdmins.map(async (adminObj) => {
                         return processDevAdmin(adminObj);
