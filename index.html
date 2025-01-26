@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Qortal Mintership System Members</title>
+    <title>Qortal Mintership System Members v0.9</title>
     <style>
         /* CSS styles */
         body {
@@ -96,7 +96,7 @@
     </style>
 </head>
 <body>
-    <h1>Qortal Mintership System Members</h1>
+    <h1>Qortal Mintership System Members v0.9</h1>
     <div><button id="reload-button" type="button" disabled>Reload</button><span id="loading">Loading data...</span></div>
     <div class="summary" style="display:none;">
         <!-- New elements for block and payout info -->
@@ -108,9 +108,12 @@
         </table>
         <hr>
         <p>Total Members: <span id="total-members"></span></p>
-        <p>Total Admins: <span id="total-admins"></span></p>
-        <p>Admins:</p>
-        <div id="admin-list"></div>
+        <p>Total Minter Admins: <span id="total-minter-admins"></span></p>
+        <p>Total Developer Admins: <span id="total-dev-admins"></span></p>
+        <p>Minter Admins:</p>
+        <div id="minter-admin-list"></div>
+        <p>Developer Admins:</p>
+        <div id="dev-admin-list"></div>
     </div>
     <!-- New div for rewards by tier -->
     <div id="rewards-by-tier" style="display:none;">
@@ -134,7 +137,8 @@
         // JavaScript code
 
         const membersByLevel = {};
-        let admins = [];
+        let minterAdmins = [];
+        let devAdmins = [];
         let tierData = {};
 
         const loadingDiv = document.getElementById('loading');
@@ -144,7 +148,8 @@
         const progressText = document.getElementById('progress-text');
         const progressBar = document.getElementById('progress-bar');
         const estimatedTimeDiv = document.getElementById('estimated-time');
-        const adminListDiv = document.getElementById('admin-list');
+        const minterAdminListDiv = document.getElementById('minter-admin-list');
+        const devAdminListDiv = document.getElementById('dev-admin-list');
         const rewardsByTierContainer = document.getElementById('rewards-by-tier');
         const searchInput = document.getElementById('search-input');
 
@@ -170,15 +175,28 @@
                 const data = await response.json();
 
                 const memberCount = data.memberCount;
-                const adminCount = data.adminCount;
+                const minterAdminCount = data.adminCount;
                 const members = data.members; // Array of member objects
 
-                // Extract admin members from the members array
-                admins = members.filter(member => member.isAdmin);
+                // Extract minter admin members from the members array
+                minterAdmins = members.filter(member => member.isAdmin);
 
                 // Display the total members and admins
                 document.getElementById('total-members').textContent = memberCount;
-                document.getElementById('total-admins').textContent = adminCount;
+                document.getElementById('total-minter-admins').textContent = minterAdminCount;
+
+                const devResponse = await fetch('/groups/members/1');
+                if (!devResponse.ok) throw new Error('Failed to fetch dev group members');
+                const devData = await devResponse.json();
+                const devAdminCount = devData.adminCount;
+                const devMembers = devData.members; // Array of dev group member objects
+                devAdmins = devMembers.filter(member => member.isAdmin);
+                document.getElementById('total-dev-admins').textContent = devAdminCount;
+                devAdmins = await Promise.all(
+                    devAdmins.map(async (adminObj) => {
+                        return processDevAdmin(adminObj);
+                    })
+                );
 
                 summaryDiv.style.display = 'block';
 
@@ -280,7 +298,8 @@
                 // Display the rewards per tier
                 displayRewardsByTier();
 
-                displayAdmins();
+                displayMinterAdmins();
+                displayDevAdmins();
                 displayMembersByLevel();
 
                 loadingDiv.textContent = '';
@@ -476,9 +495,9 @@
 
                 // Update admin data with full memberData
                 if (isAdmin) {
-                    const adminIndex = admins.findIndex(admin => admin.member === address);
+                    const adminIndex = minterAdmins.findIndex(admin => admin.member === address);
                     if (adminIndex !== -1) {
-                        admins[adminIndex] = { ...admins[adminIndex], ...memberData };
+                        minterAdmins[adminIndex] = { ...minterAdmins[adminIndex], ...memberData };
                     }
                 }
 
@@ -487,16 +506,71 @@
             }
         }
 
-        function displayAdmins() {
-            if (admins.length === 0) {
+        async function processDevAdmin(adminObj) {
+            try {
+                const address = adminObj.member; // original property is .member
+                let level = 'Unknown';
+                let name = null;
+                let avatarUrl = null;
+                try {
+                    const addressDataResponse = await fetch(`/addresses/${address}`);
+                    if (addressDataResponse.ok) {
+                        const addressData = await addressDataResponse.json();
+        level = addressData.level;
+      }
+    } catch (err) {
+      console.error(`Error fetching address data for ${address}:`, err);
+    }
+    
+    // 2) Fetch names data => get name
+    try {
+      const namesDataResponse = await fetch(`/names/address/${address}`);
+      if (namesDataResponse.ok) {
+        const namesData = await namesDataResponse.json();
+        name = (namesData && namesData.length > 0) ? namesData[0].name : null;
+      }
+    } catch (err) {
+      console.error(`Error fetching names data for ${address}:`, err);
+    }
+    
+    // 3) Check avatar
+    if (name) {
+      // The avatar image URL is "/arbitrary/THUMBNAIL/{NAME}/qortal_avatar"
+      const avatarImageUrl = `/arbitrary/THUMBNAIL/${encodeURIComponent(name)}/qortal_avatar`;
+      try {
+        const avatarRes = await fetch(avatarImageUrl);
+        if (avatarRes.ok) {
+          avatarUrl = avatarImageUrl;
+        }
+      } catch (err) {
+        console.error(`Error fetching dev avatar for ${name}:`, err);
+      }
+    }
+
+    // Attach fields so that displayDevAdmins can use them
+    // (We rename adminObj.member -> adminObj.address)
+    adminObj.address = address;
+    adminObj.name = name;
+    adminObj.level = level;
+    adminObj.avatarUrl = avatarUrl;
+
+    return adminObj;
+  } catch (err) {
+    console.error(`Error in processDevAdmin():`, err);
+    return adminObj; // fallback
+            }
+        }
+
+        function displayMinterAdmins() {
+            if (minterAdmins.length === 0) {
                 const p = document.createElement('p');
-                p.textContent = 'No admins found.';
-                adminListDiv.appendChild(p);
+                p.textContent = 'No minter admins found.';
+                minterAdminListDiv.appendChild(p);
                 return;
             }
 
             // Sort admins alphabetically by name, then by address
-            admins.sort((a, b) => {
+            minterAdmins.sort((a, b) => {
                 if (a.name && b.name) {
                     return a.name.localeCompare(b.name);
                 } else if (a.name) {
@@ -508,20 +582,20 @@
                 }
             });
 
-            admins.forEach(admin => {
-                const adminDiv = document.createElement('div');
-                adminDiv.classList.add('member');
+            minterAdmins.forEach(admin => {
+                const minterAdminDiv = document.createElement('div');
+                minterAdminDiv.classList.add('member');
 
                 if (admin.avatarUrl) {
                     const img = document.createElement('img');
                     img.src = admin.avatarUrl;
                     img.alt = `${admin.name || admin.address}'s avatar`;
-                    adminDiv.appendChild(img);
+                    minterAdminDiv.appendChild(img);
                 } else {
                     // Add invisible placeholder
                     const placeholder = document.createElement('div');
                     placeholder.classList.add('placeholder');
-                    adminDiv.appendChild(placeholder);
+                    minterAdminDiv.appendChild(placeholder);
                 }
 
                 const infoSpan = document.createElement('span');
@@ -534,9 +608,63 @@
                 infoSpan.textContent = displayText;
                 infoSpan.classList.add('admin');
 
-                adminDiv.appendChild(infoSpan);
+                minterAdminDiv.appendChild(infoSpan);
 
-                adminListDiv.appendChild(adminDiv);
+                minterAdminListDiv.appendChild(minterAdminDiv);
+            });
+        }
+
+        function displayDevAdmins() {
+            // TODO - verify this code and adjust if needed, then uncomment the block
+            if (devAdmins.length === 0) {
+                const p = document.createElement('p');
+                p.textContent = 'No developer admins found.';
+                devAdminListDiv.appendChild(p);
+                return;
+            }
+
+            // Sort dev admins alphabetically by name, then by address
+            devAdmins.sort((a, b) => {
+                if (a.name && b.name) {
+                    return a.name.localeCompare(b.name);
+                } else if (a.name) {
+                    return -1;
+                } else if (b.name) {
+                    return 1;
+                } else {
+                    return a.address.localeCompare(b.address);
+                }
+            });
+
+            devAdmins.forEach(admin => {
+                const devAdminDiv = document.createElement('div');
+                devAdminDiv.classList.add('member');
+
+                if (admin.avatarUrl) {
+                    const img = document.createElement('img');
+                    img.src = admin.avatarUrl;
+                    img.alt = `${admin.name || admin.address}'s avatar`;
+                    devAdminDiv.appendChild(img);
+                } else {
+                    // Add invisible placeholder
+                    const placeholder = document.createElement('div');
+                    placeholder.classList.add('placeholder');
+                    devAdminDiv.appendChild(placeholder);
+                }
+
+                const infoSpan = document.createElement('span');
+                let displayText = '';
+                if (admin.name) {
+                    displayText = `${admin.name} (${admin.address}) - Level ${admin.level}`;
+                } else {
+                    displayText = `${admin.address} - Level ${admin.level}`;
+                }
+                infoSpan.textContent = displayText;
+                infoSpan.classList.add('admin');
+
+                devAdminDiv.appendChild(infoSpan);
+
+                devAdminListDiv.appendChild(devAdminDiv);
             });
         }
 
