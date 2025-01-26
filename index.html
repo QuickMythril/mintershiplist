@@ -600,6 +600,14 @@
                 return;
             }
 
+            // Calculate signatures needed
+            const signaturesNeeded = Math.ceil(minterAdmins.length * 0.4);
+            const pSignatures = document.createElement('p');
+            pSignatures.textContent = `Signatures for 40% Group Approval: ${signaturesNeeded}`;
+            // Insert it right after the h2 element
+            const minterAdminsHeader = document.getElementById('minter-admins-header');
+            minterAdminsHeader.parentNode.insertBefore(pSignatures, minterAdminsHeader.nextSibling);
+
             // Sort admins alphabetically by name, then by address
             minterAdmins.sort((a, b) => {
                 if (a.name && b.name) {
@@ -646,13 +654,20 @@
         }
 
         function displayDevAdmins() {
-            // TODO - verify this code and adjust if needed, then uncomment the block
             if (devAdmins.length === 0) {
                 const p = document.createElement('p');
                 p.textContent = 'No developer admins found.';
                 devAdminListDiv.appendChild(p);
                 return;
             }
+
+            // Calculate signatures needed
+            const signaturesNeeded = Math.ceil(devAdmins.length * 0.4);
+            const pSignatures = document.createElement('p');
+            pSignatures.textContent = `Signatures for 40% Group Approval: ${signaturesNeeded}`;
+            // Insert it right after the h2 element
+            const devAdminsHeader = document.getElementById('dev-admins-header');
+            devAdminsHeader.parentNode.insertBefore(pSignatures, devAdminsHeader.nextSibling);
 
             // Sort dev admins alphabetically by name, then by address
             devAdmins.sort((a, b) => {
