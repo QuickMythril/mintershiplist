@@ -81,6 +81,24 @@
         .collapsible {
             cursor: pointer;
             user-select: none;
+            position: relative; /* so that ::before can be positioned */
+            padding-left: 25px; /* make room for the arrow */
+            transition: background-color 0.3s ease;
+        }
+        .collapsible:hover {
+            background-color: #f8f8f8;
+        }
+        .collapsible::before {
+            content: "►";
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.2em; /* size the arrow if desired */
+            transition: transform 0.2s ease;
+        }
+        .collapsible.active::before {
+            content: "▼";
         }
         .content {
             display: none;
@@ -209,16 +227,20 @@
                     const contentDiv = document.getElementById('minter-admins-content');
                     if (contentDiv.style.display === 'block') {
                         contentDiv.style.display = 'none';
+                        this.classList.remove('active');
                     } else {
                         contentDiv.style.display = 'block';
+                        this.classList.add('active');
                     }
                 });
                 document.getElementById('dev-admins-header').addEventListener('click', function() {
                     const contentDiv = document.getElementById('dev-admins-content');
                     if (contentDiv.style.display === 'block') {
                         contentDiv.style.display = 'none';
+                        this.classList.remove('active');
                     } else {
                         contentDiv.style.display = 'block';
+                        this.classList.add('active');
                     }
                 });
                 devAdmins = await Promise.all(
