@@ -125,12 +125,13 @@
         <!-- New elements for block and payout info -->
         <table>
             <tr><td>Current Reward</td><td><span id="current-block-reward"></span></td></tr>
+            <tr><td>Current Payout</td><td><span id="current-block-payout"></span></td></tr>
             <tr><td>Current Height</td><td><span id="current-block-height"></span></td></tr>
             <tr><td>Next Payout</td><td><span id="next-payout-height"></span></td></tr>
             <tr><td><span id="blocks-until-payout"></span></td><td><span id="time-until-payout"></span></td></tr>
         </table>
         <hr>
-        <p>Total Members: <span id="total-members"></span></p>
+        <p>Total Minter Group Members: <span id="total-members"></span></p>
         <div id="progress">
             <p id="progress-text"></p>
             <div id="progress-bar-container">
@@ -434,9 +435,10 @@
 
         // Display block and payout information
         document.getElementById('current-block-reward').textContent = `${currentBlockReward} QORT/Block`;
+        document.getElementById('current-block-payout').textContent = `${currentBlockReward*1000} QORT/1000 Blocks`;
         document.getElementById('current-block-height').textContent = `Block ${currentBlockHeight}`;
         document.getElementById('next-payout-height').textContent = `Block ${nextPayoutHeight}`;
-        document.getElementById('blocks-until-payout').textContent = `in ${blocksUntilPayout} Blocks`;
+        document.getElementById('blocks-until-payout').textContent = `- in ${blocksUntilPayout} Blocks`;
         document.getElementById('time-until-payout').textContent = `(about ${formatTime(estimatedTimeUntilPayout)})`;
         loadingDiv.textContent = '';
         document.getElementById('reload-button').disabled = false;
@@ -892,7 +894,7 @@
                 tierDiv.appendChild(header);
 
                 const rewardP = document.createElement('p');
-                rewardP.textContent = `Total Reward for Tier: ${tier.reward.toFixed(2)} QORT`;
+                rewardP.textContent = `Total Reward for Tier (${tier.percentage*100}%): ${tier.reward.toFixed(2)} QORT`;
                 tierDiv.appendChild(rewardP);
 
                 const rewardPerMemberP = document.createElement('p');
