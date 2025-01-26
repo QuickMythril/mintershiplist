@@ -36,9 +36,14 @@
         .member .placeholder {
             background-color: transparent;
         }
-        .admin {
+        .minter-admin {
             font-weight: bold;
             color: var(--link-color, dodgerblue);
+        }
+        .dev-admin {
+            font-weight: bold;
+            /* Direct orange color so it isn't overridden by --link-color */
+            color: rgb(255, 144, 30);
         }
         h2, h3 {
             border-bottom: 1px solid #ccc;
@@ -606,7 +611,7 @@
                     displayText = `${admin.address} - Level ${admin.level}`;
                 }
                 infoSpan.textContent = displayText;
-                infoSpan.classList.add('admin');
+                infoSpan.classList.add('minter-admin');
 
                 minterAdminDiv.appendChild(infoSpan);
 
@@ -660,7 +665,7 @@
                     displayText = `${admin.address} - Level ${admin.level}`;
                 }
                 infoSpan.textContent = displayText;
-                infoSpan.classList.add('admin');
+                infoSpan.classList.add('dev-admin');
 
                 devAdminDiv.appendChild(infoSpan);
 
@@ -743,8 +748,12 @@
                         nameSpan.textContent = member.address;
                     }
 
-                    if (member.isAdmin) {
-                        nameSpan.classList.add('admin');
+                    // Check if member is a dev admin...
+                    if (devAdmins.some(admin => admin.address === member.address)) {
+                        nameSpan.classList.add('dev-admin');
+                    // ...if not, check if member is a minter admin
+                    } else if (member.isAdmin) {
+                        nameSpan.classList.add('minter-admin');
                     }
 
                     memberDiv.appendChild(nameSpan);
@@ -840,3 +849,4 @@
     </script>
 </body>
 </html>
+
