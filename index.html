@@ -483,6 +483,9 @@
                         console.error(`Error fetching avatar for ${name}:`, error);
                     }
                 }
+                if (address === 'QdSnUy6sUiEnaN87dWmE92g1uQjrvPgrWG') {
+                    name = '[Null Account]'
+                }
 
                 // Check for TRANSFER_PRIVS transaction
                 const transferCheck = await fetch('/transactions/search?txType=TRANSFER_PRIVS&confirmationStatus=CONFIRMED&limit=0&address=' + address);
@@ -545,48 +548,47 @@
                     const addressDataResponse = await fetch(`/addresses/${address}`);
                     if (addressDataResponse.ok) {
                         const addressData = await addressDataResponse.json();
-        level = addressData.level;
-      }
-    } catch (err) {
-      console.error(`Error fetching address data for ${address}:`, err);
-    }
-    
-    // 2) Fetch names data => get name
-    try {
-      const namesDataResponse = await fetch(`/names/address/${address}`);
-      if (namesDataResponse.ok) {
-        const namesData = await namesDataResponse.json();
-        name = (namesData && namesData.length > 0) ? namesData[0].name : null;
-      }
-    } catch (err) {
-      console.error(`Error fetching names data for ${address}:`, err);
-    }
-    
-    // 3) Check avatar
-    if (name) {
-      // The avatar image URL is "/arbitrary/THUMBNAIL/{NAME}/qortal_avatar"
-      const avatarImageUrl = `/arbitrary/THUMBNAIL/${encodeURIComponent(name)}/qortal_avatar`;
-      try {
-        const avatarRes = await fetch(avatarImageUrl);
-        if (avatarRes.ok) {
-          avatarUrl = avatarImageUrl;
-        }
-      } catch (err) {
-        console.error(`Error fetching dev avatar for ${name}:`, err);
-      }
-    }
-
-    // Attach fields so that displayDevAdmins can use them
-    // (We rename adminObj.member -> adminObj.address)
-    adminObj.address = address;
-    adminObj.name = name;
-    adminObj.level = level;
-    adminObj.avatarUrl = avatarUrl;
-
-    return adminObj;
-  } catch (err) {
-    console.error(`Error in processDevAdmin():`, err);
-    return adminObj; // fallback
+                        level = addressData.level;
+                    }
+                } catch (err) {
+                    console.error(`Error fetching address data for ${address}:`, err);
+                }
+                // 2) Fetch names data => get name
+                try {
+                    const namesDataResponse = await fetch(`/names/address/${address}`);
+                    if (namesDataResponse.ok) {
+                        const namesData = await namesDataResponse.json();
+                        name = (namesData && namesData.length > 0) ? namesData[0].name : null;
+                    }
+                } catch (err) {
+                    console.error(`Error fetching names data for ${address}:`, err);
+                }
+                // 3) Check avatar
+                if (name) {
+                    // The avatar image URL is "/arbitrary/THUMBNAIL/{NAME}/qortal_avatar"
+                    const avatarImageUrl = `/arbitrary/THUMBNAIL/${encodeURIComponent(name)}/qortal_avatar`;
+                    try {
+                        const avatarRes = await fetch(avatarImageUrl);
+                        if (avatarRes.ok) {
+                            avatarUrl = avatarImageUrl;
+                        }
+                    } catch (err) {
+                        console.error(`Error fetching dev avatar for ${name}:`, err);
+                    }
+                }
+                if (address === 'QdSnUy6sUiEnaN87dWmE92g1uQjrvPgrWG') {
+                    name = '[Null Account]'
+                }
+                // Attach fields so that displayDevAdmins can use them
+                // (We rename adminObj.member -> adminObj.address)
+                adminObj.address = address;
+                adminObj.name = name;
+                adminObj.level = level;
+                adminObj.avatarUrl = avatarUrl;
+                return adminObj;
+            } catch (err) {
+                console.error(`Error in processDevAdmin():`, err);
+                return adminObj; // fallback
             }
         }
 
