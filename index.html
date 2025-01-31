@@ -339,7 +339,26 @@
                     }
                 }
 
-                // Compute rewards per tier
+                // Adjust top tiers if they have fewer than 30 members
+                const topTier910 = tierData['Levels 9-10'];
+                const nextTier78 = tierData['Levels 7-8'];
+                const nextDown56 = tierData['Levels 5-6'];
+
+                if (topTier910.memberCount < 30) {
+                    const sum = nextTier78.percentage + topTier910.percentage;
+                    // Round to two decimals:
+                    nextTier78.percentage = parseFloat(sum.toFixed(2));
+                    topTier910.percentage = 0;
+                }
+
+                if (nextTier78.memberCount < 30) {
+                    const sum = nextDown56.percentage + nextTier78.percentage;
+                    // Round to two decimals:
+                    nextDown56.percentage = parseFloat(sum.toFixed(2));
+                    nextTier78.percentage = 0;
+                }
+
+                // Now compute rewards per tier
                 for (const tierName in tierData) {
                     const tier = tierData[tierName];
                     tier.reward = totalPayoutReward * tier.percentage;
@@ -919,7 +938,7 @@
                 tierDiv.appendChild(header);
 
                 const rewardP = document.createElement('p');
-                rewardP.textContent = `Total Reward for Tier (${tier.percentage*100}%): ${tier.reward.toFixed(2)} QORT`;
+                rewardP.textContent = `Total Reward for Tier (${(tier.percentage * 100).toFixed(0)}%): ${tier.reward.toFixed(2)} QORT`;
                 tierDiv.appendChild(rewardP);
 
                 const rewardPerMemberP = document.createElement('p');
