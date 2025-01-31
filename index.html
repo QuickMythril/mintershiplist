@@ -45,6 +45,11 @@
             /* Direct orange color so it isn't overridden by --link-color */
             color: rgb(255, 144, 30);
         }
+        .null-acct {
+            font-weight: bold;
+            /* Direct red color so it isn't overridden by --link-color */
+            color: rgb(144, 30, 30);
+        }
         h2, h3 {
             border-bottom: 1px solid #ccc;
             padding-bottom: 5px;
@@ -702,7 +707,11 @@
                     displayText = `${admin.address} - Level ${admin.level}`;
                 }
                 infoSpan.textContent = displayText;
-                infoSpan.classList.add('minter-admin');
+                if (admin.address === 'QdSnUy6sUiEnaN87dWmE92g1uQjrvPgrWG') {
+                    infoSpan.classList.add('null-acct');
+                } else {
+                    infoSpan.classList.add('minter-admin');
+                }
 
                 minterAdminDiv.appendChild(infoSpan);
 
@@ -774,7 +783,11 @@
                     displayText = `${admin.address} - Level ${admin.level}`;
                 }
                 infoSpan.textContent = displayText;
-                infoSpan.classList.add('dev-admin');
+                if (admin.address === 'QdSnUy6sUiEnaN87dWmE92g1uQjrvPgrWG') {
+                    infoSpan.classList.add('null-acct');
+                } else {
+                    infoSpan.classList.add('dev-admin');
+                }
 
                 devAdminDiv.appendChild(infoSpan);
 
@@ -857,8 +870,11 @@
                         nameSpan.textContent = member.address;
                     }
 
+                    // Check for Null Account first
+                    if (member.address === 'QdSnUy6sUiEnaN87dWmE92g1uQjrvPgrWG') {
+                        nameSpan.classList.add('null-acct');
                     // Check if member is a dev admin...
-                    if (devAdmins.some(admin => admin.address === member.address)) {
+                    } else if (devAdmins.some(admin => admin.address === member.address)) {
                         nameSpan.classList.add('dev-admin');
                     // ...if not, check if member is a minter admin
                     } else if (member.isAdmin) {
@@ -958,9 +974,6 @@
 
         // TODO:
         // About page
-        // 
-        // -> Admin Rewards
-        //
         // Fix alignment
         // Login:
         // - Highlight account
@@ -970,7 +983,6 @@
         // Duplicate check
         // Dev group members
         // QORTerings
-        // Null account unique color
     </script>
 </body>
 </html>
