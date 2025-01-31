@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Qortal Mintership System Members v0.9</title>
+    <title>Qortal Mintership System Members v0.10</title>
     <style>
         /* CSS styles */
         body {
@@ -119,7 +119,7 @@
     </style>
 </head>
 <body>
-    <h1>Qortal Mintership System Members v0.9</h1>
+    <h1>Qortal Mintership System Members v0.10</h1>
     <div><button id="reload-button" type="button" disabled>Reload</button><span id="loading">Loading data...</span></div>
     <div class="summary" style="display:none;">
         <!-- New elements for block and payout info -->
@@ -257,6 +257,9 @@
 
                 // Total payout reward for next payout
                 const totalPayoutReward = 1000 * blockInfo.currentBlockReward;
+
+                // Store the total payout reward in a global variable
+                window.totalPayoutRewardGlobal = totalPayoutReward;
 
                 // Define tiers
                 const tiers = [
@@ -624,6 +627,15 @@
                 return;
             }
 
+            const totalMinterAdminReward = 0.015 * window.totalPayoutRewardGlobal;
+            const rewardPerMinterAdmin = minterAdmins.length ? (totalMinterAdminReward / (minterAdmins.length - 1)) : 0;
+
+            const adminRewardP = document.createElement('p');
+            adminRewardP.textContent = `Total Reward for Admins (1.5%): ${totalMinterAdminReward.toFixed(2)} QORT`;
+
+            const adminRewardPerP = document.createElement('p');
+            adminRewardPerP.textContent = `Reward per Admin: ${rewardPerMinterAdmin.toFixed(4)} QORT`;
+
             // Calculate signatures needed
             const signaturesNeeded = Math.ceil(minterAdmins.length * 0.4);
             const pSignatures = document.createElement('p');
@@ -631,6 +643,8 @@
             // Insert it right after the h2 element
             const minterAdminsHeader = document.getElementById('minter-admins-header');
             minterAdminsHeader.parentNode.insertBefore(pSignatures, minterAdminsHeader.nextSibling);
+            minterAdminsHeader.parentNode.insertBefore(adminRewardPerP, minterAdminsHeader.nextSibling);
+            minterAdminsHeader.parentNode.insertBefore(adminRewardP, minterAdminsHeader.nextSibling);
 
             // Sort admins alphabetically by name, then by address
             minterAdmins.sort((a, b) => {
@@ -685,6 +699,15 @@
                 return;
             }
 
+            const totalDevAdminReward = 0.015 * window.totalPayoutRewardGlobal;
+            const rewardPerDevAdmin = devAdmins.length ? (totalDevAdminReward / (devAdmins.length - 1)) : 0;
+
+            const adminRewardP = document.createElement('p');
+            adminRewardP.textContent = `Total Reward for Admins (1.5%): ${totalDevAdminReward.toFixed(2)} QORT`;
+
+            const adminRewardPerP = document.createElement('p');
+            adminRewardPerP.textContent = `Reward per Admin: ${rewardPerDevAdmin.toFixed(4)} QORT`;
+
             // Calculate signatures needed
             const signaturesNeeded = Math.ceil(devAdmins.length * 0.4);
             const pSignatures = document.createElement('p');
@@ -692,6 +715,8 @@
             // Insert it right after the h2 element
             const devAdminsHeader = document.getElementById('dev-admins-header');
             devAdminsHeader.parentNode.insertBefore(pSignatures, devAdminsHeader.nextSibling);
+            devAdminsHeader.parentNode.insertBefore(adminRewardPerP, devAdminsHeader.nextSibling);
+            devAdminsHeader.parentNode.insertBefore(adminRewardP, devAdminsHeader.nextSibling);
 
             // Sort dev admins alphabetically by name, then by address
             devAdmins.sort((a, b) => {
@@ -911,6 +936,22 @@
         document.getElementById('reload-button').addEventListener('click', function() {
             updateBlockInfo();
         });
+
+        // TODO:
+        // About page
+        // 
+        // -> Admin Rewards
+        //
+        // Fix alignment
+        // Login:
+        // - Highlight account
+        // - Check invites
+        // - Apply to mint
+        // - - Check QM/QMM version numbers
+        // Duplicate check
+        // Dev group members
+        // QORTerings
+        // Null account unique color
     </script>
 </body>
 </html>
