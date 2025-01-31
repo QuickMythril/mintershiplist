@@ -36,6 +36,13 @@
         .member .placeholder {
             background-color: transparent;
         }
+        .member .transfer-placeholder {
+            width: 80px;
+            margin-right: 15px;
+            object-fit: cover;
+            flex-shrink: 0;
+            background-color: transparent;
+        }
         .minter-admin {
             font-weight: bold;
             color: var(--link-color, dodgerblue);
@@ -176,6 +183,11 @@
         let minterAdmins = [];
         let devAdmins = [];
         let tierData = {};
+        // Create caches so you only ever fetch each piece of data once per address:
+        const addressCache = new Map();
+        const nameCache = new Map();
+        nameCache.set('QdSnUy6sUiEnaN87dWmE92g1uQjrvPgrWG', '[Null Account]');
+        const transferPrivsCache = new Map();
 
         const loadingDiv = document.getElementById('loading');
         const summaryDiv = document.querySelector('.summary');
@@ -213,9 +225,6 @@
                 const memberCount = data.memberCount;
                 const minterAdminCount = data.adminCount;
                 const members = data.members; // Array of member objects
-
-                // Extract minter admin members from the members array
-                minterAdmins = members.filter(member => member.isAdmin);
 
                 // Display the total members and admins
                 document.getElementById('total-members').textContent = memberCount;
@@ -333,7 +342,14 @@
                 // Now, display the data
 
                 // Compute member counts per tier
+                minterAdmins = [];
                 for (const level in membersByLevel) {
+                    // Build minterAdmins from the fully processed members:
+                    for (const memberObj of membersByLevel[level]) {
+                        if (memberObj.isAdmin) {
+                            minterAdmins.push(memberObj);
+                        }
+                    }
                     const levelNum = parseInt(level, 10);
                     const memberCountAtLevel = membersByLevel[level].length;
                     for (const tier of tiers) {
@@ -486,107 +502,88 @@
 }
 
         async function processMember(memberObj) {
-            try {
-                const address = memberObj.member;
-                const isAdmin = memberObj.isAdmin === true;
-
-                // Fetch the address data to get the level
-                let level = 'Unknown';
+            const address = memberObj.member;
+            // === Address info ===
+            if (!addressCache.has(address)) {
                 try {
-                    const addressDataResponse = await fetch(`/addresses/${address}`);
-                    if (addressDataResponse.ok) {
-                        const addressData = await addressDataResponse.json();
-                        level = addressData.level;
+                    const addressDataRes = await fetch(`/addresses/${address}`);
+                    if (addressDataRes.ok) {
+                        addressCache.set(address, await addressDataRes.json());
                     } else {
-                        console.error(`Error fetching address data for ${address}: ${addressDataResponse.statusText}`);
+                        addressCache.set(address, null);
                     }
-                } catch (error) {
-                    console.error(`Error fetching address data for ${address}:`, error);
+                } catch {
+                    addressCache.set(address, null);
                 }
-
-                // Fetch the names data to get the name (if any)
-                let name = null;
-                try {
-                    const namesDataResponse = await fetch(`/names/address/${address}`);
-                    if (namesDataResponse.ok) {
-                        const namesData = await namesDataResponse.json();
-                        name = (namesData && namesData.length > 0) ? namesData[0].name : null;
-                    } else {
-                        console.error(`Error fetching names data for ${address}: ${namesDataResponse.statusText}`);
-                    }
-                } catch (error) {
-                    console.error(`Error fetching names data for ${address}:`, error);
-                }
-
-                // Attempt to fetch the avatar image if the user has a name
-                let avatarUrl = null;
-                if (name) {
-                    // The avatar image URL is "/arbitrary/THUMBNAIL/{NAME}/qortal_avatar"
-                    const avatarImageUrl = `/arbitrary/THUMBNAIL/${encodeURIComponent(name)}/qortal_avatar`;
-                    // Check if the image exists
-                    try {
-                        const avatarResponse = await fetch(avatarImageUrl);
-                        if (avatarResponse.ok) {
-                            avatarUrl = avatarImageUrl;
-                        }
-                    } catch (error) {
-                        // Avatar image not found or error occurred
-                        console.error(`Error fetching avatar for ${name}:`, error);
-                    }
-                }
-                if (address === 'QdSnUy6sUiEnaN87dWmE92g1uQjrvPgrWG') {
-                    name = '[Null Account]'
-                }
-
-                // Check for TRANSFER_PRIVS transaction
-                const transferCheck = await fetch('/transactions/search?txType=TRANSFER_PRIVS&confirmationStatus=CONFIRMED&limit=0&address=' + address);
-                const transferResponse = await transferCheck.json();
-                let transferAddress = null;
-                let transferName = null;
-                
-                if (transferResponse.length > 0) {
-                    transferAddress = transferResponse[0].creatorAddress;
-                    try {
-                        const transferNamesDataResponse = await fetch(`/names/address/${transferAddress}`);
-                        if (transferNamesDataResponse.ok) {
-                            const transferNamesData = await transferNamesDataResponse.json();
-                            transferName = (transferNamesData && transferNamesData.length > 0) ? transferNamesData[0].name : null;
-                        } else {
-                            console.error(`Error fetching names data for ${transferAddress}: ${transferNamesDataResponse.statusText}`);
-                        }
-                    } catch (error) {
-                        console.error(`Error fetching names data for ${transferAddress}:`, error);
-                    }
-                }
-
-                // Store the member data
-                const memberData = {
-                    address,
-                    name,
-                    level,
-                    avatarUrl,
-                    isAdmin,
-                    transferAddress,
-                    transferName
-                };
-
-                // Add the member to the appropriate level group
-                if (!membersByLevel[level]) {
-                    membersByLevel[level] = [];
-                }
-                membersByLevel[level].push(memberData);
-
-                // Update admin data with full memberData
-                if (isAdmin) {
-                    const adminIndex = minterAdmins.findIndex(admin => admin.member === address);
-                    if (adminIndex !== -1) {
-                        minterAdmins[adminIndex] = { ...minterAdmins[adminIndex], ...memberData };
-                    }
-                }
-
-            } catch (error) {
-                console.error(`Error processing member ${memberObj.member}:`, error);
             }
+            const addressData = addressCache.get(address);
+            // Get level from the cached addressData
+            const level = addressData ? addressData.level : 'Unknown';
+            // === Name info ===
+            if (!nameCache.has(address)) {
+                try {
+                    const namesDataRes = await fetch(`/names/address/${address}`);
+                    if (namesDataRes.ok) {
+                        const namesArray = await namesDataRes.json();
+                        nameCache.set(address, (namesArray && namesArray.length) ? namesArray[0].name : null);
+                    } else {
+                        nameCache.set(address, null);
+                    }
+                } catch {
+                    nameCache.set(address, null);
+                }
+            }
+            const name = nameCache.get(address);
+
+            // === Transfer privs ===
+            if (!transferPrivsCache.has(address)) {
+                try {
+                    const transferCheck = await fetch(`/transactions/search?txType=TRANSFER_PRIVS&confirmationStatus=CONFIRMED&limit=0&address=${address}`);
+                    if (transferCheck.ok) {
+                        const transferResults = await transferCheck.json();
+                        transferPrivsCache.set(address, transferResults);
+                        // If there's at least one TRANSFER_PRIVS transaction, fetch the name of the creatorAddress
+                        if (transferResults.length > 0) {
+                            const creatorAddr = transferResults[0].creatorAddress;
+                            const transferNamesDataResponse = await fetch(`/names/address/${creatorAddr}`);
+                            if (transferNamesDataResponse.ok) {
+                                const transferNamesData = await transferNamesDataResponse.json();
+                                // Attach creatorName to the same object
+                                transferResults[0].creatorName = (transferNamesData && transferNamesData.length > 0) ? transferNamesData[0].name : null;
+                            }
+                        }
+                    } else {
+                        transferPrivsCache.set(address, []);
+                    }
+                } catch {
+                    transferPrivsCache.set(address, []);
+                }
+            }
+            const transferPrivsInfo = transferPrivsCache.get(address);
+
+            // === Avatar URL (no extra fetch check) ===
+            // If user has a name, assume an avatar might exist
+            let avatarUrl = null;
+            if (name) {
+                avatarUrl = `/arbitrary/THUMBNAIL/${encodeURIComponent(name)}/qortal_avatar`;
+            }
+    
+            // Build final object
+            const memberData = {
+                address,
+                name,
+                level,
+                avatarUrl,
+                isAdmin: memberObj.isAdmin,
+                transferAddress: transferPrivsInfo.length > 0 ? transferPrivsInfo[0].creatorAddress : null,
+                transferName: transferPrivsInfo.length > 0 ? transferPrivsInfo[0].creatorName : null,
+            };
+
+            // Push to membersByLevel, etc.
+            if (!membersByLevel[level]) {
+                membersByLevel[level] = [];
+            }
+            membersByLevel[level].push(memberData);
         }
 
         async function processDevAdmin(adminObj) {
@@ -687,17 +684,16 @@
                 const minterAdminDiv = document.createElement('div');
                 minterAdminDiv.classList.add('member');
 
-                if (admin.avatarUrl) {
-                    const img = document.createElement('img');
-                    img.src = admin.avatarUrl;
-                    img.alt = `${admin.name || admin.address}'s avatar`;
-                    minterAdminDiv.appendChild(img);
-                } else {
-                    // Add invisible placeholder
+                const img = document.createElement('img');
+                img.src = admin.avatarUrl || '/path/to/dummy/image';
+                img.alt = `${admin.name || admin.address}'s avatar`;
+                img.onerror = function() {
+                    // Replace failed image with placeholder div
                     const placeholder = document.createElement('div');
                     placeholder.classList.add('placeholder');
-                    minterAdminDiv.appendChild(placeholder);
-                }
+                    this.parentNode.replaceChild(placeholder, this);
+                };
+                minterAdminDiv.appendChild(img);
 
                 const infoSpan = document.createElement('span');
                 let displayText = '';
@@ -763,17 +759,16 @@
                 const devAdminDiv = document.createElement('div');
                 devAdminDiv.classList.add('member');
 
-                if (admin.avatarUrl) {
-                    const img = document.createElement('img');
-                    img.src = admin.avatarUrl;
-                    img.alt = `${admin.name || admin.address}'s avatar`;
-                    devAdminDiv.appendChild(img);
-                } else {
-                    // Add invisible placeholder
+                const img = document.createElement('img');
+                img.src = admin.avatarUrl || '/path/to/dummy/image';
+                img.alt = `${admin.name || admin.address}'s avatar`;
+                img.onerror = function() {
+                    // Replace failed image with placeholder div
                     const placeholder = document.createElement('div');
                     placeholder.classList.add('placeholder');
-                    devAdminDiv.appendChild(placeholder);
-                }
+                    this.parentNode.replaceChild(placeholder, this);
+                };
+                devAdminDiv.appendChild(img);
 
                 const infoSpan = document.createElement('span');
                 let displayText = '';
@@ -851,17 +846,16 @@
                     const memberDiv = document.createElement('div');
                     memberDiv.classList.add('member');
 
-                    if (member.avatarUrl) {
-                        const img = document.createElement('img');
-                        img.src = member.avatarUrl;
-                        img.alt = `${member.name || member.address}'s avatar`;
-                        memberDiv.appendChild(img);
-                    } else {
-                        // Add invisible placeholder
+                    const img = document.createElement('img');
+                    img.src = member.avatarUrl || '/path/to/dummy/image';
+                    img.alt = `${member.name || member.address}'s avatar`;
+                    img.onerror = function() {
+                        // Replace failed image with placeholder div
                         const placeholder = document.createElement('div');
                         placeholder.classList.add('placeholder');
-                        memberDiv.appendChild(placeholder);
-                    }
+                        this.parentNode.replaceChild(placeholder, this);
+                    };
+                    memberDiv.appendChild(img);
 
                     const nameSpan = document.createElement('span');
                     if (member.name) {
@@ -886,8 +880,9 @@
 
                     if (member.transferAddress) {
                         const transferDiv = document.createElement('div');
+                        transferDiv.classList.add('member');
                         const placeholder = document.createElement('div');
-                        placeholder.classList.add('placeholder');
+                        placeholder.classList.add('transfer-placeholder');
                         transferDiv.appendChild(placeholder);
 
                         const transferSpan = document.createElement('span');
@@ -974,7 +969,6 @@
 
         // TODO:
         // About page
-        // Fix alignment
         // Login:
         // - Highlight account
         // - Check invites
